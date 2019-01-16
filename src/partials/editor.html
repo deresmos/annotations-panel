@@ -91,4 +91,21 @@
     </div>
   </div>
 
+  <div class="section gf-form-group">
+    <h5 class="section-heading">Datasource</h5>
+
+    <div class="gf-form">
+      <span class="gf-form-label width-7">Datasource</span>
+
+      <div class="gf-form-select-wrapper">
+        <select
+          class="gf-form-input gf-size-auto"
+          ng-model="ctrl.panel.selectedDatasource"
+          ng-options="f for f in ctrl.availableDatasources"
+          ng-change="ctrl.refresh()">
+        </select>
+      </div>
+    </div>
+  </div>
+
 </div>

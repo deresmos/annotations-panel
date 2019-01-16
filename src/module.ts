@@ -12,6 +12,8 @@ class AnnoListCtrl extends PanelCtrl {
 
   found: any[] = [];
   timeInfo?: string; // TODO shoudl be defined in Types
+  availableDatasources: string[];
+  defaultDatasource: string = '-- Grafana --';
 
   queryUserId?: number;
   queryUser?: string;
@@ -29,14 +31,18 @@ class AnnoListCtrl extends PanelCtrl {
     navigateBefore: '10m',
     navigateAfter: '10m',
     navigateToPanel: true,
+
+    selectedDatasource: '-- Grafana --',
   };
 
   /** @ngInject */
   constructor(
     $scope,
     $injector,
+    private $http,
     private $rootScope,
     private backendSrv,
+    private datasourceSrv,
     private timeSrv,
     private $location
   ) {
@@ -47,6 +53,19 @@ class AnnoListCtrl extends PanelCtrl {
 
     this.events.on('refresh', this.onRefresh.bind(this));
     this.events.on('init-edit-mode', this.onInitEditMode.bind(this));
+
+    // Get InfluxDB datasource and defaultDatasource
+    this.backendSrv.get('/api/datasources').then((result) => {
+      var availableDatasources: any[];
+      availableDatasources = _.filter(result, {"type": "influxdb"});
+      availableDatasources = availableDatasources.map(function(v) {
+        return v.name;
+      });
+      availableDatasources.push(this.defaultDatasource);
+
+      this.availableDatasources = availableDatasources;
+    });
+
   }
 
   onInitEditMode() {
@@ -63,6 +82,49 @@ class AnnoListCtrl extends PanelCtrl {
     promises.push(this.getAnnotationSearch());
 
     return Promise.all(promises).then(this.renderingCompleted.bind(this));
+  }
+
+  _getAnnotationFromInfluxDB(params: any): Promise<any> {
+    const zip = (array1, array2) => array1.map((_, i) => [array1[i], array2[i]]);
+
+    let where = ' WHERE 1 = 1 ';
+    if (this.queryTagValue) {
+      where += ' and tags =~ /' + this.queryTagValue + '(,|$)/ '
+    }
+
+    if (params.from) {
+      // RFC3339
+      where += ' and (' + params.from + '000000 <= time and time <= ' + params.to + '000000)';
+    }
+
+    let limit = 'LIMIT ' + this.panel.limit;
+
+    return this.datasourceSrv.get(this.panel.selectedDatasource).then( (ds) => {
+      this.$http({
+        url: ds.urls[0] + '/query?db=grafana_annotation&q=SELECT * FROM events ' + where + limit,
+        method: 'POST',
+        headers: {
+            "Content-Type": "plain/text"
+        }
+      }).then((rsp) => {
+        let found: any[] = [];
+        rsp.data.results[0].series[0].values.forEach(function (v){
+          let anno: { [key: string]: any; } = {};
+          zip(rsp.data.results[0].series[0].columns, v).forEach(function (d) {
+            if (d[0] === 'tags') {
+              anno[d[0]] = d[1].split(',');
+            } else {
+              anno[d[0]] = d[1];
+            }
+
+          })
+          found.push(anno)
+        })
+        this.found = found;
+      }, err => {
+          console.log( "ERROR", err );
+      });
+    });
   }
 
   getAnnotationSearch(): Promise<any> {
@@ -104,9 +166,15 @@ class AnnoListCtrl extends PanelCtrl {
       this.timeInfo += ' ' + this.queryTagValue;
     }
 
-    return this.backendSrv.get('/api/annotations', params).then(result => {
-      this.found = result;
-    });
+    if (this.panel.selectedDatasource === this.defaultDatasource) {
+      // -- Grafana --
+      return this.backendSrv.get('/api/annotations', params).then(result => {
+        this.found = result;
+      });
+    } else {
+      // InfluxDB
+      return this._getAnnotationFromInfluxDB(params)
+    }
   }
 
   _timeOffset(time: number, offset: string, subtract: boolean = false) {
@@ -202,7 +270,16 @@ class AnnoListCtrl extends PanelCtrl {
       evt.stopPropagation();
       evt.preventDefault();
     }
-    this.queryTagValue = tag;
+
+    if (this.queryTagValue === tag) {
+      // Reset tag
+      this.queryTagValue = '';
+      this.panel.tags = [];
+    } else {
+      // Set tag
+      this.queryTagValue = tag;
+      this.panel.tags = [tag]
+    }
     console.log('Query Tag', tag, anno, this);
     this.refresh();
   }
