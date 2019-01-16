@@ -99,13 +99,15 @@ class AnnoListCtrl extends PanelCtrl {
 
     let limit = 'LIMIT ' + this.panel.limit;
 
+    let payload: any = {
+      'db': 'grafana_annotation',
+      'q': 'SELECT * FROM events ' + where + limit,
+    };
+
     return this.datasourceSrv.get(this.panel.selectedDatasource).then( (ds) => {
       this.$http({
-        url: ds.urls[0] + '/query?db=grafana_annotation&q=SELECT * FROM events ' + where + limit,
-        method: 'POST',
-        headers: {
-            "Content-Type": "plain/text"
-        }
+        url: ds.urls[0] + '/query',
+        params: payload,
       }).then((rsp) => {
         let found: any[] = [];
         rsp.data.results[0].series[0].values.forEach(function (v){
