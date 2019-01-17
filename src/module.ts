@@ -39,7 +39,6 @@ class AnnoListCtrl extends PanelCtrl {
   constructor(
     $scope,
     $injector,
-    private $http,
     private $rootScope,
     private backendSrv,
     private datasourceSrv,
@@ -116,7 +115,7 @@ class AnnoListCtrl extends PanelCtrl {
       };
       const dashboardId = this.dashboard.id;
 
-      this.$http({
+      return this.backendSrv.$http({
         url: ds.urls[0] + '/query',
         method: 'GET',
         params: payload,
@@ -132,7 +131,7 @@ class AnnoListCtrl extends PanelCtrl {
           let anno: { [key: string]: any; } = {};
           zip(result.data.results[0].series[0].columns, v).forEach(function (d) {
             if (d[0] === 'tags') {
-              anno[d[0]] = d[1].split(',');
+              anno[d[0]] = d[1] ? d[1].split(',') : [];
             } else {
               anno[d[0]] = d[1];
             }
