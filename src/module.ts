@@ -104,6 +104,7 @@ class AnnoListCtrl extends PanelCtrl {
         'db': ds.database,
         'q': 'SELECT * FROM events ' + where + limit,
       };
+      const dashboardId = this.dashboard.id;
 
       this.$http({
         url: ds.urls[0] + '/query',
@@ -121,6 +122,9 @@ class AnnoListCtrl extends PanelCtrl {
             }
 
           })
+          if (anno['dashboardId'] === undefined) {
+            anno['dashboardId'] = dashboardId;
+          }
           found.push(anno);
         })
         this.found = found;
