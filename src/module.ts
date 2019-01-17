@@ -53,21 +53,18 @@ class AnnoListCtrl extends PanelCtrl {
     this.events.on('refresh', this.onRefresh.bind(this));
     this.events.on('init-edit-mode', this.onInitEditMode.bind(this));
 
-    // Get InfluxDB datasource and defaultDatasource
-    this.backendSrv.get('/api/datasources').then((result) => {
-      var availableDatasources: any[];
-      availableDatasources = _.filter(result, {"type": "influxdb"});
-      availableDatasources = availableDatasources.map(function(v) {
-        return v.name;
-      });
-      availableDatasources.push(this.defaultDatasource);
-
-      this.availableDatasources = availableDatasources;
-    });
-
   }
 
   onInitEditMode() {
+    // Get InfluxDB datasource and defaultDatasource
+    var availableDatasources: any[];
+    availableDatasources = _.filter(this.datasourceSrv.datasources, {'type': 'influxdb'});
+    availableDatasources = availableDatasources.map(function(v) {
+      return v.name;
+    });
+    availableDatasources.push(this.defaultDatasource);
+    this.availableDatasources = availableDatasources;
+
     this.editorTabIndex = 1;
     this.addEditorTab(
       'Options',
