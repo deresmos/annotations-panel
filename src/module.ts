@@ -98,7 +98,11 @@ class AnnoListCtrl extends PanelCtrl {
       where += ' AND (' + params.from + '000000 <= time AND time <= ' + params.to + '000000)';
     }
 
-    const limit = 'LIMIT ' + this.panel.limit;
+    if (params.dashboardId) {
+      where += ' AND dashboardId = ' + params.dashboardId;
+    }
+
+    const limit = ' LIMIT ' + this.panel.limit;
 
     return this.datasourceSrv.get(this.panel.selectedDatasource).then( (ds) => {
       const payload: any = {
