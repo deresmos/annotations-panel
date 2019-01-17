@@ -31,6 +31,7 @@ class AnnoListCtrl extends PanelCtrl {
     navigateBefore: '10m',
     navigateAfter: '10m',
     navigateToPanel: true,
+    navigateToDashboard: true,
 
     selectedDatasource: '-- Grafana --',
   };
@@ -229,8 +230,15 @@ class AnnoListCtrl extends PanelCtrl {
       return;
     }
 
-    this.backendSrv.get('/api/search', {dashboardIds: anno.dashboardId}).then(res => {
-      if (res && res.length === 1 && res[0].id === anno.dashboardId) {
+    let dashboardId;
+    if (this.panel.navigateToDashboard) {
+      dashboardId = anno.dashboardId;
+    } else {
+      dashboardId = this.dashboard.id;
+    }
+
+    this.backendSrv.get('/api/search', {dashboardIds: dashboardId}).then(res => {
+      if (res && res.length === 1 && res[0].id === dashboardId) {
         const dash = res[0];
         let path = dash.url;
         if (!path) {
@@ -254,7 +262,7 @@ class AnnoListCtrl extends PanelCtrl {
       } else {
         console.log('Unable to find dashboard...', anno);
         this.$rootScope.appEvent('alert-warning', [
-          'Unknown Dashboard: ' + anno.dashboardId,
+          'Unknown Dashboard: ' + dashboardId,
         ]);
       }
     });
