@@ -89,15 +89,15 @@ class AnnoListCtrl extends PanelCtrl {
 
     let where = ' WHERE 1 = 1 ';
     if (this.queryTagValue) {
-      where += ' and tags =~ /' + this.queryTagValue + '(,|$)/ '
+      where += ' AND tags =~ /' + this.queryTagValue + '(,|$)/ ';
     }
 
     if (params.from) {
       // RFC3339
-      where += ' and (' + params.from + '000000 <= time and time <= ' + params.to + '000000)';
+      where += ' AND (' + params.from + '000000 <= time AND time <= ' + params.to + '000000)';
     }
 
-    let limit = 'LIMIT ' + this.panel.limit;
+    const limit = 'LIMIT ' + this.panel.limit;
 
     return this.datasourceSrv.get(this.panel.selectedDatasource).then( (ds) => {
       const payload: any = {
@@ -110,18 +110,18 @@ class AnnoListCtrl extends PanelCtrl {
         url: ds.urls[0] + '/query',
         method: 'GET',
         params: payload,
-      }).then((rsp) => {
+      }).then((result) => {
         let found: any[] = [];
-        rsp.data.results[0].series[0].values.forEach(function (v){
+        result.data.results[0].series[0].values.forEach(function (v){
           let anno: { [key: string]: any; } = {};
-          zip(rsp.data.results[0].series[0].columns, v).forEach(function (d) {
+          zip(result.data.results[0].series[0].columns, v).forEach(function (d) {
             if (d[0] === 'tags') {
               anno[d[0]] = d[1].split(',');
             } else {
               anno[d[0]] = d[1];
             }
 
-          })
+          });
           if (anno['dashboardId'] === undefined) {
             anno['dashboardId'] = dashboardId;
           }
@@ -180,7 +180,7 @@ class AnnoListCtrl extends PanelCtrl {
       });
     } else {
       // InfluxDB
-      return this._getAnnotationFromInfluxDB(params)
+      return this._getAnnotationFromInfluxDB(params);
     }
   }
 
@@ -250,7 +250,6 @@ class AnnoListCtrl extends PanelCtrl {
         if (orgId) {
           params.orgId = orgId;
         }
-        console.log('SEARCH', path, params);
         this.$location.path(path).search(params);
       } else {
         console.log('Unable to find dashboard...', anno);
@@ -268,7 +267,6 @@ class AnnoListCtrl extends PanelCtrl {
     }
     this.queryUserId = anno.userId;
     this.queryUser = anno.login;
-    console.log('Query User', anno, this);
     this.refresh();
   }
 
@@ -285,9 +283,8 @@ class AnnoListCtrl extends PanelCtrl {
     } else {
       // Set tag
       this.queryTagValue = tag;
-      this.panel.tags = [tag]
+      this.panel.tags = [tag];
     }
-    console.log('Query Tag', tag, anno, this);
     this.refresh();
   }
 }
