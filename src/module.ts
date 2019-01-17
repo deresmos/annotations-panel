@@ -113,6 +113,12 @@ class AnnoListCtrl extends PanelCtrl {
         params: payload,
       }).then((result) => {
         let found: any[] = [];
+        // No series
+        if (result.data.results[0].series === undefined) {
+          this.found = found;
+          return;
+        }
+
         result.data.results[0].series[0].values.forEach(function (v){
           let anno: { [key: string]: any; } = {};
           zip(result.data.results[0].series[0].columns, v).forEach(function (d) {
