@@ -17,7 +17,6 @@ class AnnoListCtrl extends PanelCtrl {
 
   queryUserId?: number;
   queryUser?: string;
-  queryTagValue?: string;
 
   static panelDefaults = {
     limit: 10,
@@ -89,8 +88,14 @@ class AnnoListCtrl extends PanelCtrl {
     const zip = (array1, array2) => array1.map((_, i) => [array1[i], array2[i]]);
 
     let where = ' WHERE 1 = 1 ';
-    if (this.queryTagValue) {
-      where += ' AND tags =~ /' + this.queryTagValue + '(,|$)/ ';
+    // tags expr
+    if (params.tags.length) {
+      let expr = '/';
+      params.tags.forEach(function(v) {
+        expr += v + '(,|$)|';
+      });
+      expr = expr.slice(0, -1) + '/';
+      where += ' AND tags =~ ' + expr;
     }
 
     if (params.from) {
@@ -173,15 +178,6 @@ class AnnoListCtrl extends PanelCtrl {
     if (this.queryUserId !== undefined) {
       params.userId = this.queryUserId;
       this.timeInfo += ' ' + this.queryUser;
-    }
-
-    if (this.queryTagValue) {
-      if (params.tags) {
-        params.tags.push(this.queryTagValue);
-      } else {
-        params.tags = [this.queryTagValue];
-      }
-      this.timeInfo += ' ' + this.queryTagValue;
     }
 
     if (this.panel.selectedDatasource === this.defaultDatasource) {
@@ -294,15 +290,18 @@ class AnnoListCtrl extends PanelCtrl {
       evt.preventDefault();
     }
 
-    if (this.queryTagValue === tag) {
-      // Reset tag
-      this.queryTagValue = '';
-      this.panel.tags = [];
+    if (this.panel.tags.indexOf(tag) > -1) {
+      // Remove exists tag
+      this.panel.tags = _.without(this.panel.tags, tag);
+
+    } else if (tag) {
+      // Append tag
+      this.panel.tags.push(tag);
     } else {
-      // Set tag
-      this.queryTagValue = tag;
-      this.panel.tags = [tag];
+      // Reset tags
+      this.panel.tags = [];
     }
+
     this.refresh();
   }
 }
