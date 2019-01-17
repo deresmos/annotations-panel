@@ -106,6 +106,10 @@ class AnnoListCtrl extends PanelCtrl {
       where += ' AND dashboardId = ' + params.dashboardId;
     }
 
+    if (params.userId) {
+      where += ' AND userId = ' + params.userId;
+    }
+
     const limit = ' LIMIT ' + this.panel.limit;
 
     return this.datasourceSrv.get(this.panel.selectedDatasource).then( (ds) => {
@@ -278,8 +282,16 @@ class AnnoListCtrl extends PanelCtrl {
       evt.stopPropagation();
       evt.preventDefault();
     }
-    this.queryUserId = anno.userId;
-    this.queryUser = anno.login;
+    if (this.queryUserId === anno.userId) {
+      // Reset user filter
+      this.queryUserId = undefined;
+      this.queryUser = undefined;
+    
+    } else {
+      // Set user filter
+      this.queryUserId = anno.userId;
+      this.queryUser = anno.login;
+    }
     this.refresh();
   }
 
