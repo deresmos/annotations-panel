@@ -85,7 +85,7 @@ class AnnoListCtrl extends PanelCtrl {
     return Promise.all(promises).then(this.renderingCompleted.bind(this));
   }
 
-  _getAnnotationFromInfluxDB(params: any): Promise<any> {
+  _promiseAnnotationFromInfluxDB(params: any): Promise<any> {
     const zip = (array1, array2) => array1.map((_, i) => [array1[i], array2[i]]);
 
     let where = ' WHERE 1 = 1 ';
@@ -191,7 +191,7 @@ class AnnoListCtrl extends PanelCtrl {
       });
     } else {
       // InfluxDB
-      return this._getAnnotationFromInfluxDB(params);
+      return this._promiseAnnotationFromInfluxDB(params);
     }
   }
 
