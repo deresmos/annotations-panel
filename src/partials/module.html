@@ -5,8 +5,29 @@
       {{group.header}}
     </h6>
   -->
+
+    <div class="dashlist-item clearfix" ng-if="ctrl.panel.showTags">
+      <span class="pluginlist-message">
+        <a href="#" title="Reset tags" ng-click="ctrl.queryAnnotationTag('', '', $event)">
+          Active tags:&nbsp;
+          <span class="pluginlist-version" ng-if="ctrl.panel.tags.length < 1">
+            none
+          </span>
+        </a>
+
+        <a
+          href="#"
+          ng-click="ctrl.queryAnnotationTag(anno, tag, $event)"
+          ng-repeat="tag in ctrl.panel.tags"
+          tag-color-from-name="tag"
+          class="label label-tag">
+          {{tag}}
+        </a>
+      </span>
+    </div>
+
     <div class="dashlist-item" ng-repeat="anno in ctrl.found">
-      <a class="dashlist-link dashlist-link-{{anno.type}}" 
+      <a class="dashlist-link dashlist-link-{{anno.type}} clearfix"
         ng-click="ctrl.selectAnno(anno, $event);" 
         href="#">
         <span class="dashlist-title">
@@ -15,6 +36,15 @@
 
         <!-- Right Aligned -->
         <span class="pluginlist-message">
+          <span
+            ng-if="ctrl.panel.showTags"
+            ng-click="ctrl.queryAnnotationTag(anno, tag, $event)"
+            ng-repeat="tag in anno.tags"
+            tag-color-from-name="tag"
+            class="label label-tag">
+            {{tag}}
+          </span>
+
           <span ng-if="ctrl.panel.showUser && anno.login" class="graph-annotation">
             <span  
               ng-click="ctrl.queryAnnotationUser(anno, $event)" 
@@ -24,22 +54,13 @@
             </span>
           </span>
 
-          <span
-            ng-if="ctrl.panel.showTags" 
-            ng-click="ctrl.queryAnnotationTag(anno, tag, $event)" 
-            ng-repeat="tag in anno.tags" 
-            tag-color-from-name="tag" 
-            class="label label-tag">
-            {{tag}}
+          <span class="pluginlist-version" ng-if="ctrl.panel.showTime">
+            {{ ctrl.dashboard.formatDate(anno.time) }}
           </span>
         </span>
 
         <!-- small grey text -->
         <span class="pluginlist-version">
-          <span ng-if="ctrl.panel.showTime">
-            {{ ctrl.dashboard.formatDate(anno.time) }}
-          </span>
-
           <span ng-if="ctrl.panel.showAnnoJSON">
             {{ anno | json }}
           </span>

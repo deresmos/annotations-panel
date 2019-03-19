@@ -12,10 +12,11 @@ class AnnoListCtrl extends PanelCtrl {
 
   found: any[] = [];
   timeInfo?: string; // TODO shoudl be defined in Types
+  availableDatasources: string[];
+  defaultDatasource: string = '-- Grafana --';
 
   queryUserId?: number;
   queryUser?: string;
-  queryTagValue?: string;
 
   static panelDefaults = {
     limit: 10,
@@ -29,6 +30,9 @@ class AnnoListCtrl extends PanelCtrl {
     navigateBefore: '10m',
     navigateAfter: '10m',
     navigateToPanel: true,
+    navigateToDashboard: true,
+
+    selectedDatasource: '-- Grafana --',
   };
 
   /** @ngInject */
@@ -37,6 +41,7 @@ class AnnoListCtrl extends PanelCtrl {
     $injector,
     private $rootScope,
     private backendSrv,
+    private datasourceSrv,
     private timeSrv,
     private $location
   ) {
@@ -47,9 +52,19 @@ class AnnoListCtrl extends PanelCtrl {
 
     this.events.on('refresh', this.onRefresh.bind(this));
     this.events.on('init-edit-mode', this.onInitEditMode.bind(this));
+
   }
 
   onInitEditMode() {
+    // Get InfluxDB datasource and defaultDatasource
+    var availableDatasources: any[];
+    availableDatasources = _.filter(this.datasourceSrv.datasources, {'type': 'influxdb'});
+    availableDatasources = availableDatasources.map(function(v) {
+      return v.name;
+    });
+    availableDatasources.push(this.defaultDatasource);
+    this.availableDatasources = availableDatasources;
+
     this.editorTabIndex = 1;
     this.addEditorTab(
       'Options',
@@ -63,6 +78,76 @@ class AnnoListCtrl extends PanelCtrl {
     promises.push(this.getAnnotationSearch());
 
     return Promise.all(promises).then(this.renderingCompleted.bind(this));
+  }
+
+  _promiseAnnotationFromInfluxDB(params: any): Promise<any> {
+    const zip = (array1, array2) => array1.map((_, i) => [array1[i], array2[i]]);
+
+    let where = ' WHERE 1 = 1 ';
+    // tags expr
+    if (params.tags.length) {
+      let expr = '/';
+      params.tags.forEach(function(v) {
+        expr += v + '(,|$)|';
+      });
+      expr = expr.slice(0, -1) + '/';
+      where += ' AND tags =~ ' + expr;
+    }
+
+    if (params.from) {
+      // RFC3339
+      where += ' AND (' + params.from + '000000 <= time AND time <= ' + params.to + '000000)';
+    }
+
+    if (params.dashboardId) {
+      where += ' AND dashboardId = ' + params.dashboardId;
+    }
+
+    if (params.userId) {
+      where += ' AND userId = ' + params.userId;
+    }
+
+    const limit = ' LIMIT ' + this.panel.limit;
+
+    return this.datasourceSrv.get(this.panel.selectedDatasource).then( (ds) => {
+      const payload: any = {
+        'db': ds.database,
+        'q': 'SELECT * FROM events ' + where + limit,
+      };
+      const dashboardId = this.dashboard.id;
+
+      return this.backendSrv.$http({
+        url: ds.urls[0] + '/query',
+        method: 'GET',
+        params: payload,
+      }).then((result) => {
+        let found: any[] = [];
+        // No series
+        if (result.data.results[0].series === undefined) {
+          this.found = found;
+          return;
+        }
+
+        result.data.results[0].series[0].values.forEach(function (v){
+          let anno: { [key: string]: any; } = {};
+          zip(result.data.results[0].series[0].columns, v).forEach(function (d) {
+            if (d[0] === 'tags') {
+              anno[d[0]] = d[1] ? d[1].split(',') : [];
+            } else {
+              anno[d[0]] = d[1];
+            }
+
+          });
+          if (anno['dashboardId'] === undefined) {
+            anno['dashboardId'] = dashboardId;
+          }
+          found.push(anno);
+        })
+        this.found = found;
+      }, err => {
+          console.log( "ERROR", err );
+      });
+    });
   }
 
   getAnnotationSearch(): Promise<any> {
@@ -95,18 +180,15 @@ class AnnoListCtrl extends PanelCtrl {
       this.timeInfo += ' ' + this.queryUser;
     }
 
-    if (this.queryTagValue) {
-      if (params.tags) {
-        params.tags.push(this.queryTagValue);
-      } else {
-        params.tags = [this.queryTagValue];
-      }
-      this.timeInfo += ' ' + this.queryTagValue;
+    if (this.panel.selectedDatasource === this.defaultDatasource) {
+      // -- Grafana --
+      return this.backendSrv.get('/api/annotations', params).then(result => {
+        this.found = result;
+      });
+    } else {
+      // InfluxDB
+      return this._promiseAnnotationFromInfluxDB(params);
     }
-
-    return this.backendSrv.get('/api/annotations', params).then(result => {
-      this.found = result;
-    });
   }
 
   _timeOffset(time: number, offset: string, subtract: boolean = false) {
@@ -154,8 +236,15 @@ class AnnoListCtrl extends PanelCtrl {
       return;
     }
 
-    this.backendSrv.get('/api/search', {dashboardIds: anno.dashboardId}).then(res => {
-      if (res && res.length === 1 && res[0].id === anno.dashboardId) {
+    let dashboardId;
+    if (this.panel.navigateToDashboard) {
+      dashboardId = anno.dashboardId;
+    } else {
+      dashboardId = this.dashboard.id;
+    }
+
+    this.backendSrv.get('/api/search', {dashboardIds: dashboardId}).then(res => {
+      if (res && res.length === 1 && res[0].id === dashboardId) {
         const dash = res[0];
         let path = dash.url;
         if (!path) {
@@ -175,12 +264,11 @@ class AnnoListCtrl extends PanelCtrl {
         if (orgId) {
           params.orgId = orgId;
         }
-        console.log('SEARCH', path, params);
         this.$location.path(path).search(params);
       } else {
         console.log('Unable to find dashboard...', anno);
         this.$rootScope.appEvent('alert-warning', [
-          'Unknown Dashboard: ' + anno.dashboardId,
+          'Unknown Dashboard: ' + dashboardId,
         ]);
       }
     });
@@ -191,9 +279,16 @@ class AnnoListCtrl extends PanelCtrl {
       evt.stopPropagation();
       evt.preventDefault();
     }
-    this.queryUserId = anno.userId;
-    this.queryUser = anno.login;
-    console.log('Query User', anno, this);
+    if (this.queryUserId === anno.userId) {
+      // Reset user filter
+      this.queryUserId = undefined;
+      this.queryUser = undefined;
+    
+    } else {
+      // Set user filter
+      this.queryUserId = anno.userId;
+      this.queryUser = anno.login;
+    }
     this.refresh();
   }
 
@@ -202,8 +297,19 @@ class AnnoListCtrl extends PanelCtrl {
       evt.stopPropagation();
       evt.preventDefault();
     }
-    this.queryTagValue = tag;
-    console.log('Query Tag', tag, anno, this);
+
+    if (this.panel.tags.indexOf(tag) > -1) {
+      // Remove exists tag
+      this.panel.tags = _.without(this.panel.tags, tag);
+
+    } else if (tag) {
+      // Append tag
+      this.panel.tags.push(tag);
+    } else {
+      // Reset tags
+      this.panel.tags = [];
+    }
+
     this.refresh();
   }
 }
